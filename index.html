@@ -2,10 +2,28 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="refresh" content="0; url=driver.html">
-<title>Car Recovery — Location Sharing</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Car Recovery — Location Sharing (test)</title>
+<style>
+  :root { --bg: #f4f5f7; --card: #ffffff; --border: #e2e4e8; --text: #1a1d23; --muted: #6b7280; --primary: #d35400; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 32px 16px; display: flex; justify-content: center; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.04); max-width: 420px; width: 100%; padding: 28px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin: 0 0 24px; }
+  a.link { display: block; padding: 12px 14px; margin-top: 10px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--text); font-weight: 600; font-size: 14px; }
+  a.link:hover { border-color: var(--primary); background: #fff8f4; }
+  a.link .desc { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+</style>
 </head>
 <body>
-  <p>Redirecting to the driver page... if nothing happens, <a href="driver.html">click here</a>.</p>
+  <div class="card">
+    <h1>🚗 Car Recovery — Location Sharing</h1>
+    <p class="subtitle">Test frontend</p>
+
+    <a class="link" href="signup.html">Sign up<span class="desc">Create a new driver account</span></a>
+    <a class="link" href="login.html">Log in<span class="desc">Retrieve your API key</span></a>
+    <a class="link" href="driver.html">Driver page<span class="desc">Share your location once you have an API key</span></a>
+  </div>
 </body>
 </html>
