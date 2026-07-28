@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Track Driver (test)</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; }
+  #status { padding: 10px 16px; background: #f2f2f2; font-size: 14px; }
+  #map { height: calc(100vh - 42px); width: 100%; }
+  .live { color: #0a7d2c; font-weight: bold; }
+  .ended { color: #b00020; font-weight: bold; }
+</style>
+</head>
+<body>
+  <div id="status">Connecting...</div>
+  <div id="map"></div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const token = params.get("token");
+    const backendUrl = (params.get("backend") || "http://localhost:8080").replace(/\/$/, "");
+    const statusEl = document.getElementById("status");
+
+    if (!token) {
+      statusEl.textContent = "No token provided. Open this page as track.html?token=...";
+      statusEl.className = "ended";
+    } else {
+      const map = L.map("map").setView([0, 0], 2);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+      }).addTo(map);
+
+      let marker = null;
+      let hasCentered = false;
+
+      const backendHost = new URL(backendUrl).host;
+      const wsProto = new URL(backendUrl).protocol === "https:" ? "wss" : "ws";
+      const socket = new WebSocket(`${wsProto}://${backendHost}/ws/track/${token}`);
+
+      socket.addEventListener("open", () => {
+        statusEl.textContent = "Connected. Waiting for driver location...";
+        statusEl.className = "live";
+      });
+
+      socket.addEventListener("message", (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === "location") {
+          statusEl.textContent = `Live — last update ${new Date().toLocaleTimeString()}`;
+          statusEl.className = "live";
+          const pos = [msg.lat, msg.lng];
+          if (!marker) {
+            marker = L.marker(pos).addTo(map);
+          } else {
+            marker.setLatLng(pos);
+          }
+          if (!hasCentered) {
+            map.setView(pos, 15);
+            hasCentered = true;
+          }
+        } else if (msg.type === "session_ended") {
+          statusEl.textContent = "This link is no longer active — the driver stopped sharing.";
+          statusEl.className = "ended";
+        }
+      });
+
+      socket.addEventListener("close", () => {
+        if (statusEl.className !== "ended") {
+          statusEl.textContent = "Connection closed.";
+          statusEl.className = "ended";
+        }
+      });
+
+      socket.addEventListener("error", () => {
+        statusEl.textContent = "This link is no longer active or could not be reached.";
+        statusEl.className = "ended";
+      });
+    }
+  </script>
+</body>
+</html>

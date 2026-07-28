@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Driver — Share Location (test)</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; }
+  label { display: block; margin-top: 12px; font-size: 14px; color: #333; }
+  input { width: 100%; padding: 8px; font-size: 14px; box-sizing: border-box; }
+  button { margin-top: 16px; padding: 10px 16px; font-size: 15px; cursor: pointer; }
+  #status { margin-top: 20px; padding: 12px; border-radius: 6px; background: #f2f2f2; font-size: 14px; white-space: pre-wrap; }
+  #shareUrl { margin-top: 12px; word-break: break-all; }
+  .live { color: #0a7d2c; font-weight: bold; }
+  .stopped { color: #999; }
+</style>
+</head>
+<body>
+  <h2>Driver — Share Location</h2>
+
+  <label>Backend URL</label>
+  <input id="backendUrl" value="http://localhost:8080">
+
+  <label>API key</label>
+  <input id="apiKey" value="dev-api-key-123">
+
+  <label>Duration (minutes, blank = no timer)</label>
+  <input id="duration" type="number" placeholder="e.g. 30">
+
+  <button id="startBtn">Share Location</button>
+  <button id="stopBtn" disabled>Stop Sharing</button>
+
+  <div id="status">Not sharing.</div>
+  <div id="shareUrl"></div>
+
+  <script>
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const statusEl = document.getElementById("status");
+    const shareUrlEl = document.getElementById("shareUrl");
+
+    let driverSocket = null;
+    let watchId = null;
+
+    function setStatus(text, cls) {
+      statusEl.textContent = text;
+      statusEl.className = cls || "";
+    }
+
+    startBtn.addEventListener("click", async () => {
+      const backendUrl = document.getElementById("backendUrl").value.trim().replace(/\/$/, "");
+      const apiKey = document.getElementById("apiKey").value.trim();
+      const duration = document.getElementById("duration").value;
+      const body = duration ? { duration_minutes: Number(duration) } : {};
+
+      const res = await fetch(`${backendUrl}/api/driver/share/start`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        setStatus("Failed to start share: " + (await res.text()));
+        return;
+      }
+      const { token, share_url } = await res.json();
+      const localTestLink = `track.html?token=${encodeURIComponent(token)}&backend=${encodeURIComponent(backendUrl)}`;
+      shareUrlEl.innerHTML = `
+        API-returned share_url (for your real production frontend to serve): <code>${share_url}</code><br>
+        Local test link (open this to actually test tracking): <a href="${localTestLink}" target="_blank">${localTestLink}</a>
+      `;
+
+      const backendHost = new URL(backendUrl).host;
+      const wsProto = new URL(backendUrl).protocol === "https:" ? "wss" : "ws";
+      driverSocket = new WebSocket(
+        `${wsProto}://${backendHost}/ws/driver/share/${token}?api_key=${encodeURIComponent(apiKey)}`
+      );
+
+      driverSocket.addEventListener("open", () => {
+        setStatus("Connected. Waiting for GPS position...", "live");
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+
+        if (!navigator.geolocation) {
+          setStatus("Geolocation not supported by this browser.");
+          return;
+        }
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            const { latitude: lat, longitude: lng } = pos.coords;
+            if (driverSocket.readyState === WebSocket.OPEN) {
+              driverSocket.send(JSON.stringify({ lat, lng }));
+              setStatus(`Sharing live.\nLast sent: ${lat.toFixed(5)}, ${lng.toFixed(5)}\nat ${new Date().toLocaleTimeString()}`, "live");
+            }
+          },
+          (err) => setStatus("Geolocation error: " + err.message),
+          { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+        );
+      });
+
+      driverSocket.addEventListener("message", (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === "session_ended") {
+          setStatus("Session ended (stopped, expired, or superseded by a new share).", "stopped");
+          cleanup();
+        }
+      });
+
+      driverSocket.addEventListener("close", () => {
+        setStatus((s) => s, "stopped");
+      });
+    });
+
+    stopBtn.addEventListener("click", async () => {
+      const backendUrl = document.getElementById("backendUrl").value.trim().replace(/\/$/, "");
+      const apiKey = document.getElementById("apiKey").value.trim();
+      await fetch(`${backendUrl}/api/driver/share/stop`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      setStatus("Stopped sharing.", "stopped");
+      cleanup();
+    });
+
+    function cleanup() {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (driverSocket) driverSocket.close();
+      watchId = null;
+      driverSocket = null;
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+  </script>
+</body>
+</html>
