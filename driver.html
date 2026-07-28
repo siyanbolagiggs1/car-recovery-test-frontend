@@ -90,7 +90,6 @@
   #shareUrl { margin-top: 14px; font-size: 13px; line-height: 1.6; word-break: break-all; }
   #shareUrl a { color: var(--primary); text-decoration: none; font-weight: 600; }
   #shareUrl a:hover { text-decoration: underline; }
-  #shareUrl .fallback { color: var(--muted); font-size: 12px; }
 </style>
 </head>
 <body>
@@ -148,8 +147,7 @@
       const { token, share_url } = await res.json();
       const localTestLink = `${location.origin}/track.html?token=${encodeURIComponent(token)}&backend=${encodeURIComponent(backendUrl)}`;
       shareUrlEl.innerHTML = `
-        Share this link: <a href="${share_url}" target="_blank">${share_url}</a><br>
-        <span class="fallback">(fallback link if the above doesn't load: <a href="${localTestLink}" target="_blank">${localTestLink}</a>)</span>
+        Share this link: <a href="${localTestLink}" target="_blank">${localTestLink}</a>
       `;
 
       const backendHost = new URL(backendUrl).host;
