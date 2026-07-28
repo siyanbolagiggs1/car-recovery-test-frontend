@@ -2,35 +2,119 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Driver — Share Location (test)</title>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; }
-  label { display: block; margin-top: 12px; font-size: 14px; color: #333; }
-  input { width: 100%; padding: 8px; font-size: 14px; box-sizing: border-box; }
-  button { margin-top: 16px; padding: 10px 16px; font-size: 15px; cursor: pointer; }
-  #status { margin-top: 20px; padding: 12px; border-radius: 6px; background: #f2f2f2; font-size: 14px; white-space: pre-wrap; }
-  #shareUrl { margin-top: 12px; word-break: break-all; }
-  .live { color: #0a7d2c; font-weight: bold; }
-  .stopped { color: #999; }
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --border: #e2e4e8;
+    --text: #1a1d23;
+    --muted: #6b7280;
+    --primary: #d35400;
+    --primary-dark: #a84300;
+    --green: #0a7d2c;
+    --green-bg: #eaf7ee;
+    --gray-bg: #f2f2f2;
+    --red: #b00020;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 32px 16px;
+    display: flex;
+    justify-content: center;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.04);
+    max-width: 460px;
+    width: 100%;
+    padding: 28px 28px 24px;
+  }
+  .header { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .header .icon { font-size: 26px; }
+  h1 { font-size: 20px; margin: 0; }
+  .subtitle { color: var(--muted); font-size: 13px; margin: 4px 0 24px; }
+  label { display: block; margin-top: 16px; font-size: 13px; font-weight: 600; color: #444; }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    margin-top: 6px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fafbfc;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: #fff;
+  }
+  .actions { display: flex; gap: 10px; margin-top: 22px; }
+  button {
+    flex: 1;
+    padding: 11px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    transition: background 0.15s, opacity 0.15s;
+  }
+  #startBtn { background: var(--primary); color: #fff; }
+  #startBtn:hover:not(:disabled) { background: var(--primary-dark); }
+  #stopBtn { background: #eceef1; color: #444; }
+  #stopBtn:hover:not(:disabled) { background: #dfe2e6; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  #status {
+    margin-top: 20px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: var(--gray-bg);
+    border-left: 3px solid #c7cad0;
+    font-size: 13.5px;
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+  #status.live { background: var(--green-bg); border-left-color: var(--green); color: #145c26; font-weight: 600; }
+  #status.stopped { background: var(--gray-bg); border-left-color: #9aa0a8; color: var(--muted); }
+
+  #shareUrl { margin-top: 14px; font-size: 13px; line-height: 1.6; word-break: break-all; }
+  #shareUrl a { color: var(--primary); text-decoration: none; font-weight: 600; }
+  #shareUrl a:hover { text-decoration: underline; }
+  #shareUrl .fallback { color: var(--muted); font-size: 12px; }
 </style>
 </head>
 <body>
-  <h2>Driver — Share Location</h2>
+  <div class="card">
+    <div class="header"><span class="icon">📍</span><h1>Driver — Share Location</h1></div>
+    <p class="subtitle">Test page for the live location sharing backend</p>
 
-  <label>Backend URL</label>
-  <input id="backendUrl" value="http://localhost:8080">
+    <label>Backend URL</label>
+    <input id="backendUrl" value="https://car-recovery-backend.onrender.com">
 
-  <label>API key</label>
-  <input id="apiKey" value="dev-api-key-123">
+    <label>API key</label>
+    <input id="apiKey" value="dev-api-key-123">
 
-  <label>Duration (minutes, blank = no timer)</label>
-  <input id="duration" type="number" placeholder="e.g. 30">
+    <label>Duration (minutes, blank = no timer)</label>
+    <input id="duration" type="number" placeholder="e.g. 30">
 
-  <button id="startBtn">Share Location</button>
-  <button id="stopBtn" disabled>Stop Sharing</button>
+    <div class="actions">
+      <button id="startBtn">Share Location</button>
+      <button id="stopBtn" disabled>Stop Sharing</button>
+    </div>
 
-  <div id="status">Not sharing.</div>
-  <div id="shareUrl"></div>
+    <div id="status">Not sharing.</div>
+    <div id="shareUrl"></div>
+  </div>
 
   <script>
     const startBtn = document.getElementById("startBtn");
@@ -62,10 +146,10 @@
         return;
       }
       const { token, share_url } = await res.json();
-      const localTestLink = `track.html?token=${encodeURIComponent(token)}&backend=${encodeURIComponent(backendUrl)}`;
+      const localTestLink = `${location.origin}/track.html?token=${encodeURIComponent(token)}&backend=${encodeURIComponent(backendUrl)}`;
       shareUrlEl.innerHTML = `
-        API-returned share_url (for your real production frontend to serve): <code>${share_url}</code><br>
-        Local test link (open this to actually test tracking): <a href="${localTestLink}" target="_blank">${localTestLink}</a>
+        Share this link: <a href="${share_url}" target="_blank">${share_url}</a><br>
+        <span class="fallback">(fallback link if the above doesn't load: <a href="${localTestLink}" target="_blank">${localTestLink}</a>)</span>
       `;
 
       const backendHost = new URL(backendUrl).host;

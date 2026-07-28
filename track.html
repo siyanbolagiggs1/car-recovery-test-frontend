@@ -2,30 +2,77 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Track Driver (test)</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  body { font-family: system-ui, sans-serif; margin: 0; }
-  #status { padding: 10px 16px; background: #f2f2f2; font-size: 14px; }
-  #map { height: calc(100vh - 42px); width: 100%; }
-  .live { color: #0a7d2c; font-weight: bold; }
-  .ended { color: #b00020; font-weight: bold; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; margin: 0; }
+  #map { height: 100vh; width: 100%; }
+
+  #status {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #333;
+    max-width: 90vw;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #status .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #9aa0a8;
+    flex-shrink: 0;
+  }
+  #status.live .dot {
+    background: #0a7d2c;
+    box-shadow: 0 0 0 0 rgba(10,125,44,0.5);
+    animation: pulse 1.6s infinite;
+  }
+  #status.live { color: #145c26; }
+  #status.ended .dot { background: #b00020; }
+  #status.ended { color: #b00020; }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(10,125,44,0.45); }
+    70% { box-shadow: 0 0 0 8px rgba(10,125,44,0); }
+    100% { box-shadow: 0 0 0 0 rgba(10,125,44,0); }
+  }
 </style>
 </head>
 <body>
-  <div id="status">Connecting...</div>
+  <div id="status"><span class="dot"></span><span id="statusText">Connecting...</span></div>
   <div id="map"></div>
 
   <script>
     const params = new URLSearchParams(location.search);
     const token = params.get("token");
-    const backendUrl = (params.get("backend") || "http://localhost:8080").replace(/\/$/, "");
+    const backendUrl = (params.get("backend") || "https://car-recovery-backend.onrender.com").replace(/\/$/, "");
     const statusEl = document.getElementById("status");
+    const statusText = document.getElementById("statusText");
+
+    function setStatus(text, cls) {
+      statusText.textContent = text;
+      statusEl.className = cls || "";
+    }
 
     if (!token) {
-      statusEl.textContent = "No token provided. Open this page as track.html?token=...";
-      statusEl.className = "ended";
+      setStatus("No token provided. Open this page as track.html?token=...", "ended");
     } else {
       const map = L.map("map").setView([0, 0], 2);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -40,15 +87,13 @@
       const socket = new WebSocket(`${wsProto}://${backendHost}/ws/track/${token}`);
 
       socket.addEventListener("open", () => {
-        statusEl.textContent = "Connected. Waiting for driver location...";
-        statusEl.className = "live";
+        setStatus("Connected. Waiting for driver location...", "live");
       });
 
       socket.addEventListener("message", (e) => {
         const msg = JSON.parse(e.data);
         if (msg.type === "location") {
-          statusEl.textContent = `Live — last update ${new Date().toLocaleTimeString()}`;
-          statusEl.className = "live";
+          setStatus(`Live — last update ${new Date().toLocaleTimeString()}`, "live");
           const pos = [msg.lat, msg.lng];
           if (!marker) {
             marker = L.marker(pos).addTo(map);
@@ -60,21 +105,18 @@
             hasCentered = true;
           }
         } else if (msg.type === "session_ended") {
-          statusEl.textContent = "This link is no longer active — the driver stopped sharing.";
-          statusEl.className = "ended";
+          setStatus("This link is no longer active — the driver stopped sharing.", "ended");
         }
       });
 
       socket.addEventListener("close", () => {
         if (statusEl.className !== "ended") {
-          statusEl.textContent = "Connection closed.";
-          statusEl.className = "ended";
+          setStatus("Connection closed.", "ended");
         }
       });
 
       socket.addEventListener("error", () => {
-        statusEl.textContent = "This link is no longer active or could not be reached.";
-        statusEl.className = "ended";
+        setStatus("This link is no longer active or could not be reached.", "ended");
       });
     }
   </script>
