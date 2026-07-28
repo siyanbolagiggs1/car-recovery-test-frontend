@@ -128,6 +128,11 @@
     let driverSocket = null;
     let watchId = null;
 
+    const savedApiKey = localStorage.getItem("carRecoveryApiKey");
+    const savedBackendUrl = localStorage.getItem("carRecoveryBackendUrl");
+    if (savedApiKey) document.getElementById("apiKey").value = savedApiKey;
+    if (savedBackendUrl) document.getElementById("backendUrl").value = savedBackendUrl;
+
     function setStatus(text, cls) {
       statusEl.textContent = text;
       statusEl.className = cls || "";

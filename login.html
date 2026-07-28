@@ -64,8 +64,11 @@
         return;
       }
       const { api_key } = JSON.parse(text);
-      resultEl.textContent = `Logged in! Your API key (use this on the driver page):\n\n${api_key}`;
+      localStorage.setItem("carRecoveryApiKey", api_key);
+      localStorage.setItem("carRecoveryBackendUrl", backendUrl);
+      resultEl.textContent = "Logged in! Redirecting to the driver page...";
       resultEl.className = "ok";
+      setTimeout(() => { location.href = "driver.html"; }, 800);
     });
   </script>
 </body>
