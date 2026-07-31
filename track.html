@@ -82,6 +82,23 @@
       let marker = null;
       let hasCentered = false;
 
+      // Grab the customer's own location once, to give the backend a destination to
+      // compute ETA against. Best-effort: if permission is denied or unavailable, ETA
+      // just never shows up in the location pushes below - same graceful degradation
+      // the backend already applies when OSRM itself is unreachable.
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            fetch(`${backendUrl}/api/track/${token}/destination`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+            }).catch(() => {});
+          },
+          () => {},
+        );
+      }
+
       const backendHost = new URL(backendUrl).host;
       const wsProto = new URL(backendUrl).protocol === "https:" ? "wss" : "ws";
       const socket = new WebSocket(`${wsProto}://${backendHost}/ws/track/${token}`);
@@ -93,7 +110,8 @@
       socket.addEventListener("message", (e) => {
         const msg = JSON.parse(e.data);
         if (msg.type === "location") {
-          setStatus(`Live — last update ${new Date().toLocaleTimeString()}`, "live");
+          const etaText = typeof msg.eta_minutes === "number" ? ` · ETA ${Math.round(msg.eta_minutes)} min` : "";
+          setStatus(`Live — last update ${new Date().toLocaleTimeString()}${etaText}`, "live");
           const pos = [msg.lat, msg.lng];
           if (!marker) {
             marker = L.marker(pos).addTo(map);
