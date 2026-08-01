@@ -81,11 +81,14 @@
 
       let marker = null;
       let hasCentered = false;
+      let routeLine = null;
 
       // Grab the customer's own location once, to give the backend a destination to
       // compute ETA against. Best-effort: if permission is denied or unavailable, ETA
       // just never shows up in the location pushes below - same graceful degradation
-      // the backend already applies when OSRM itself is unreachable.
+      // the backend already applies when OSRM itself is unreachable. enableHighAccuracy
+      // matters here - without it, desktop browsers often fall back to coarse WiFi/IP-based
+      // positioning that can be off by kilometers.
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
@@ -96,6 +99,7 @@
             }).catch(() => {});
           },
           () => {},
+          { enableHighAccuracy: true, timeout: 10000 },
         );
       }
 
@@ -117,6 +121,13 @@
             marker = L.marker(pos).addTo(map);
           } else {
             marker.setLatLng(pos);
+          }
+          if (Array.isArray(msg.route) && msg.route.length > 0) {
+            if (!routeLine) {
+              routeLine = L.polyline(msg.route, { color: "#0a7d2c", weight: 4, opacity: 0.7 }).addTo(map);
+            } else {
+              routeLine.setLatLngs(msg.route);
+            }
           }
           if (!hasCentered) {
             map.setView(pos, 15);

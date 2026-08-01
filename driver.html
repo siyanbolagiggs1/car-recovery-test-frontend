@@ -127,6 +127,12 @@
 
     let driverSocket = null;
     let watchId = null;
+    let lastSentText = "";
+    let lastETAText = "";
+
+    function refreshSharingStatus() {
+      setStatus(`${lastSentText}${lastETAText}`, "live");
+    }
 
     const savedApiKey = localStorage.getItem("carRecoveryApiKey");
     const savedBackendUrl = localStorage.getItem("carRecoveryBackendUrl");
@@ -179,7 +185,8 @@
             const { latitude: lat, longitude: lng } = pos.coords;
             if (driverSocket.readyState === WebSocket.OPEN) {
               driverSocket.send(JSON.stringify({ lat, lng }));
-              setStatus(`Sharing live.\nLast sent: ${lat.toFixed(5)}, ${lng.toFixed(5)}\nat ${new Date().toLocaleTimeString()}`, "live");
+              lastSentText = `Sharing live.\nLast sent: ${lat.toFixed(5)}, ${lng.toFixed(5)}\nat ${new Date().toLocaleTimeString()}`;
+              refreshSharingStatus();
             }
           },
           (err) => setStatus("Geolocation error: " + err.message),
@@ -189,7 +196,10 @@
 
       driverSocket.addEventListener("message", (e) => {
         const msg = JSON.parse(e.data);
-        if (msg.type === "session_ended") {
+        if (msg.type === "location") {
+          lastETAText = typeof msg.eta_minutes === "number" ? `\nETA: ${Math.round(msg.eta_minutes)} min` : "";
+          refreshSharingStatus();
+        } else if (msg.type === "session_ended") {
           setStatus("Session ended (stopped, expired, or superseded by a new share).", "stopped");
           cleanup();
         }
@@ -216,6 +226,8 @@
       if (driverSocket) driverSocket.close();
       watchId = null;
       driverSocket = null;
+      lastSentText = "";
+      lastETAText = "";
       startBtn.disabled = false;
       stopBtn.disabled = true;
     }
