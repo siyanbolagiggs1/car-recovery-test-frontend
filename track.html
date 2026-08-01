@@ -53,6 +53,13 @@
     70% { box-shadow: 0 0 0 8px rgba(10,125,44,0); }
     100% { box-shadow: 0 0 0 0 rgba(10,125,44,0); }
   }
+
+  .car-marker-icon, .dest-marker-icon {
+    font-size: 26px;
+    line-height: 1;
+    text-align: center;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
+  }
 </style>
 </head>
 <body>
@@ -80,8 +87,22 @@
       }).addTo(map);
 
       let marker = null;
+      let destMarker = null;
       let hasCentered = false;
       let routeLine = null;
+
+      const carIcon = L.divIcon({
+        html: "🚗",
+        className: "car-marker-icon",
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+      });
+      const destIcon = L.divIcon({
+        html: "📍",
+        className: "dest-marker-icon",
+        iconSize: [26, 26],
+        iconAnchor: [13, 26], // pin's point should land on the actual location
+      });
 
       // Grab the customer's own location once, to give the backend a destination to
       // compute ETA against. Best-effort: if permission is denied or unavailable, ETA
@@ -92,6 +113,8 @@
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
+            const destPos = [pos.coords.latitude, pos.coords.longitude];
+            destMarker = L.marker(destPos, { icon: destIcon }).addTo(map);
             fetch(`${backendUrl}/api/track/${token}/destination`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -118,13 +141,13 @@
           setStatus(`Live — last update ${new Date().toLocaleTimeString()}${etaText}`, "live");
           const pos = [msg.lat, msg.lng];
           if (!marker) {
-            marker = L.marker(pos).addTo(map);
+            marker = L.marker(pos, { icon: carIcon }).addTo(map);
           } else {
             marker.setLatLng(pos);
           }
           if (Array.isArray(msg.route) && msg.route.length > 0) {
             if (!routeLine) {
-              routeLine = L.polyline(msg.route, { color: "#0a7d2c", weight: 4, opacity: 0.7 }).addTo(map);
+              routeLine = L.polyline(msg.route, { color: "#1a73e8", weight: 4, opacity: 0.7 }).addTo(map);
             } else {
               routeLine.setLatLngs(msg.route);
             }
