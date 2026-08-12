@@ -60,6 +60,13 @@
     text-align: center;
     filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
   }
+
+  /* Rotated separately from the marker's own (Leaflet-managed) positioning transform,
+     so our rotation never clobbers the translate3d() Leaflet uses to place the icon. */
+  .car-rotate {
+    display: inline-block;
+    transition: transform 0.25s linear;
+  }
 </style>
 </head>
 <body>
@@ -92,11 +99,43 @@
       let routeLine = null;
 
       const carIcon = L.divIcon({
-        html: "🚗",
+        html: '<span class="car-rotate">🚗</span>',
         className: "car-marker-icon",
         iconSize: [26, 26],
         iconAnchor: [13, 13],
       });
+
+      // The 🚗 emoji faces left (west) by default in most platforms' emoji fonts, not "up" -
+      // this is the correction applied before rotating to the actual direction of travel.
+      // If it looks off on your device/font, this is the number to tweak.
+      const CAR_ICON_FACES_DEG = 270;
+
+      let lastCarPos = null; // [lat, lng] of the previous location push, for bearing calc
+      let carRotation = 0; // unwrapped (not mod 360) so the CSS transition always takes the short way round
+
+      function bearingDeg(from, to) {
+        const toRad = (d) => (d * Math.PI) / 180;
+        const toDeg = (r) => (r * 180) / Math.PI;
+        const lat1 = toRad(from[0]), lat2 = toRad(to[0]);
+        const dLng = toRad(to[1] - from[1]);
+        const y = Math.sin(dLng) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+        return (toDeg(Math.atan2(y, x)) + 360) % 360;
+      }
+
+      function rotateCarIcon(targetDeg) {
+        if (!marker) return;
+        const el = marker.getElement();
+        const inner = el && el.querySelector(".car-rotate");
+        if (!inner) return;
+        // Shortest angular step from the current (unwrapped) rotation to the target, so the
+        // icon never spins the long way round when crossing the 0/360 boundary.
+        let diff = (targetDeg - (carRotation % 360)) % 360;
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+        carRotation += diff;
+        inner.style.transform = `rotate(${carRotation}deg)`;
+      }
       const destIcon = L.divIcon({
         html: "📍",
         className: "dest-marker-icon",
@@ -143,8 +182,20 @@
           if (!marker) {
             marker = L.marker(pos, { icon: carIcon }).addTo(map);
           } else {
+            if (typeof msg.heading === "number") {
+              // Driver client sent a real heading (GPS course or compass) - trust it
+              // directly, it's more accurate than anything we can derive here, and it
+              // works even when the driver is stationary (a two-point bearing can't).
+              rotateCarIcon((msg.heading - CAR_ICON_FACES_DEG + 360) % 360);
+            } else if (lastCarPos && map.distance(lastCarPos, pos) > 3) {
+              // Fallback: no heading provided, estimate it from the last two fixes.
+              // Only recompute once the driver has actually moved a meaningful distance -
+              // GPS noise while stationary would otherwise spin the icon randomly.
+              rotateCarIcon((bearingDeg(lastCarPos, pos) - CAR_ICON_FACES_DEG + 360) % 360);
+            }
             marker.setLatLng(pos);
           }
+          lastCarPos = pos;
           if (Array.isArray(msg.route) && msg.route.length > 0) {
             if (!routeLine) {
               routeLine = L.polyline(msg.route, { color: "#1a73e8", weight: 4, opacity: 0.7 }).addTo(map);
